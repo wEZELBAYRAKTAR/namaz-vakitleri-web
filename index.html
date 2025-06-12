@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Türkiye Namaz Vakitleri</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'custom-teal': {
+                            '50': '#f0f9f8',
+                            '100': '#e0f2f1',
+                            '200': '#b2dfdb',
+                            '300': '#80cbc4',
+                            '400': '#4db6ac',
+                            '500': '#26a69a',
+                            '600': '#1BA78B', // Ana Renk
+                            '700': '#00897b',
+                            '800': '#00796b',
+                            '900': '#004d40',
+                        },
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #F8FAFC; /* slate-50 */
+        }
+        .modal-container {
+            transition: opacity 0.3s ease-in-out;
+        }
+        .modal-content {
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .province-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+            animation: fadeInUp 0.5s ease-out forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        .province-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(27, 167, 139, 0.1);
+            border-color: #1BA78B;
+        }
+        .district-button {
+            transition: background-color 0.2s ease, transform 0.2s ease, color 0.2s ease;
+        }
+        .district-button:hover {
+            transform: translateY(-2px);
+            background-color: #e0f2f1; /* custom-teal-100 */
+            color: #004d40; /* custom-teal-900 */
+        }
+        .district-button.active {
+             background-color: #1BA78B;
+             color: #ffffff;
+             font-weight: 600;
+        }
+        .loader {
+            border-top-color: #1BA78B;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .district-list::-webkit-scrollbar { width: 8px; }
+        .district-list::-webkit-scrollbar-track { background: #f1f5f9; } /* slate-100 */
+        .district-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; } /* slate-300 */
+        .district-list::-webkit-scrollbar-thumb:hover { background: #94a3b8; } /* slate-400 */
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <!-- Ana Konteyner -->
+    <div class="container mx-auto px-4 py-10">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold text-custom-teal-600 mb-4">Türkiye Namaz Vakitleri</h1>
+            <div id="hadith-container" class="max-w-3xl mx-auto mt-6 p-5 bg-white border border-gray-200 rounded-xl shadow-sm">
+                <p id="hadith-text" class="text-lg italic text-slate-600"></p>
+                <p id="hadith-source" class="text-right text-sm mt-3 font-medium text-custom-teal-700"></p>
+            </div>
+        </header>
+
+        <!-- Arama Çubuğu -->
+        <div class="mb-12 max-w-xl mx-auto">
+            <input type="text" id="search-input" placeholder="İl arayın..." class="w-full p-4 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-custom-teal-500 focus:outline-none transition">
+        </div>
+
+        <!-- İller Listesi -->
+        <main id="province-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5 md:gap-6">
+            <!-- İl kartları JavaScript ile buraya eklenecek -->
+        </main>
+    </div>
+
+    <!-- Modal (Popup) -->
+    <div id="modal-container" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none">
+        <div id="modal-content" class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col transform scale-90 overflow-hidden">
+            <!-- Modal Başlığı -->
+            <div class="flex justify-between items-center p-5 border-b border-gray-200">
+                <h2 id="modal-title" class="text-3xl font-bold text-custom-teal-600"></h2>
+                <button id="close-modal" class="text-gray-400 hover:text-custom-teal-600 text-4xl transform hover:rotate-90 transition-transform duration-300">&times;</button>
+            </div>
+
+            <!-- Modal İçeriği -->
+            <div class="flex flex-col md:flex-row flex-grow min-h-0">
+                <!-- Sol Taraf: Namaz Vakitleri -->
+                <div class="w-full md:w-1/2 p-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-gray-200 bg-slate-50/50">
+                     <div id="loader" class="hidden w-16 h-16 border-4 border-gray-200 rounded-full loader"></div>
+                     <div id="prayer-times-container" class="w-full">
+                        <div class="text-center mb-5">
+                            <p class="text-md text-slate-500">Sonraki Vakit</p>
+                            <p id="next-prayer-name" class="text-3xl font-bold text-custom-teal-600">-</p>
+                            <p id="countdown" class="text-4xl font-mono font-bold mt-1 text-slate-800">-:-:-</p>
+                        </div>
+                        <div id="prayer-times-list" class="space-y-2 w-full max-w-sm mx-auto">
+                            <!-- Vakitler buraya eklenecek -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sağ Taraf: İlçeler -->
+                <div class="w-full md:w-1/2 p-6 flex flex-col">
+                    <h3 class="text-2xl font-semibold mb-4 text-center text-slate-700">İlçeler</h3>
+                    <div id="district-list" class="district-list flex-grow overflow-y-auto -mr-3 pr-3">
+                        <!-- İlçe butonları buraya eklenecek -->
+                    </div>
+                </div>
+            </div>
+             <div class="text-center p-3 text-xs text-slate-400 border-t border-gray-200 bg-slate-50">
+                Namaz vakitleri Diyanet İşleri Başkanlığı verileriyle hesaplanmaktadır.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const provinceData = { "Adana": { "plate": "01", "districts": ["Aladağ", "Ceyhan", "Çukurova", "Feke", "İmamoğlu", "Karaisalı", "Karataş", "Kozan", "Pozantı", "Saimbeyli", "Sarıçam", "Seyhan", "Tufanbeyli", "Yumurtalık", "Yüreğir"] }, "Adıyaman": { "plate": "02", "districts": ["Besni", "Çelikhan", "Gerger", "Gölbaşı", "Kahta", "Samsat", "Sincik", "Tut"] }, "Afyonkarahisar": { "plate": "03", "districts": ["Başmakçı", "Bayat", "Bolvadin", "Çay", "Çobanlar", "Dazkırı", "Dinar", "Emirdağ", "Evciler", "Hocalar", "İhsaniye", "İscehisar", "Kızılören", "Sandıklı", "Sinanpaşa", "Sultandağı", "Şuhut"] }, "Ağrı": { "plate": "04", "districts": ["Diyadin", "Doğubayazıt", "Eleşkirt", "Hamur", "Patnos", "Taşlıçay", "Tutak"] }, "Amasya": { "plate": "05", "districts": ["Göynücek", "Gümüşhacıköy", "Hamamözü", "Merzifon", "Suluova", "Taşova"] }, "Ankara": { "plate": "06", "districts": ["Akyurt", "Altındağ", "Ayaş", "Bala", "Beypazarı", "Çamlıdere", "Çankaya", "Çubuk", "Elmadağ", "Etimesgut", "Evren", "Gölbaşı", "Güdül", "Haymana", "Kahramankazan", "Kalecik", "Keçiören", "Kızılcahamam", "Mamak", "Nallıhan", "Polatlı", "Pursaklar", "Sincan", "Şereflikoçhisar", "Yenimahalle"] }, "Antalya": { "plate": "07", "districts": ["Akseki", "Aksu", "Alanya", "Demre", "Döşemealtı", "Elmalı", "Finike", "Gazipaşa", "Gündoğmuş", "İbradı", "Kaş", "Kemer", "Kepez", "Konyaaltı", "Korkuteli", "Kumluca", "Manavgat", "Muratpaşa", "Serik"] }, "Artvin": { "plate": "08", "districts": ["Ardanuç", "Arhavi", "Borçka", "Hopa", "Kemalpaşa", "Murgul", "Şavşat", "Yusufeli"] }, "Aydın": { "plate": "09", "districts": ["Bozdoğan", "Buharkent", "Çine", "Didim", "Efeler", "Germencik", "İncirliova", "Karacasu", "Karpuzlu", "Koçarlı", "Köşk", "Kuşadası", "Kuyucak", "Nazilli", "Söke", "Sultanhisar", "Yenipazar"] }, "Balıkesir": { "plate": "10", "districts": ["Altıeylül", "Ayvalık", "Balya", "Bandırma", "Bigadiç", "Burhaniye", "Dursunbey", "Edremit", "Erdek", "Gömeç", "Gönen", "Havran", "İvrindi", "Karesi", "Kepsut", "Manyas", "Marmara", "Savaştepe", "Sındırgı", "Susurluk"] }, "Bilecik": { "plate": "11", "districts": ["Bozüyük", "Gölpazarı", "İnhisar", "Osmaneli", "Pazaryeri", "Söğüt", "Yenipazar"] }, "Bingöl": { "plate": "12", "districts": ["Adaklı", "Genç", "Karlıova", "Kiğı", "Solhan", "Yayladere", "Yedisu"] }, "Bitlis": { "plate": "13", "districts": ["Adilcevaz", "Ahlat", "Güroymak", "Hizan", "Mutki", "Tatvan"] }, "Bolu": { "plate": "14", "districts": ["Dörtdivan", "Gerede", "Göynük", "Kıbrıscık", "Mengen", "Mudurnu", "Seben", "Yeniçağa"] }, "Burdur": { "plate": "15", "districts": ["Ağlasun", "Altınyayla", "Bucak", "Çavdır", "Çeltikçi", "Gölhisar", "Karamanlı", "Kemer", "Tefenni", "Yeşilova"] }, "Bursa": { "plate": "16", "districts": ["Büyükorhan", "Gemlik", "Gürsu", "Harmancık", "İnegöl", "İznik", "Karacabey", "Keles", "Kestel", "Mudanya", "Mustafakemalpaşa", "Nilüfer", "Orhaneli", "Orhangazi", "Osmangazi", "Yenişehir", "Yıldırım"] }, "Çanakkale": { "plate": "17", "districts": ["Ayvacık", "Bayramiç", "Biga", "Bozcaada", "Çan", "Eceabat", "Ezine", "Gelibolu", "Gökçeada", "Lapseki", "Yenice"] }, "Çankırı": { "plate": "18", "districts": ["Atkaracalar", "Bayramören", "Çerkeş", "Eldivan", "Ilgaz", "Kızılırmak", "Korgun", "Kurşunlu", "Orta", "Şabanözü", "Yapraklı"] }, "Çorum": { "plate": "19", "districts": ["Alaca", "Bayat", "Boğazkale", "Dodurga", "İskilip", "Kargı", "Laçin", "Mecitözü", "Oğuzlar", "Ortaköy", "Osmancık", "Sungurlu", "Uğurludağ"] }, "Denizli": { "plate": "20", "districts": ["Acıpayam", "Babadağ", "Baklan", "Bekilli", "Beyağaç", "Bozkurt", "Buldan", "Çal", "Çameli", "Çardak", "Çivril", "Güney", "Honaz", "Kale", "Merkezefendi", "Pamukkale", "Sarayköy", "Serinhisar", "Tavas"] }, "Diyarbakır": { "plate": "21", "districts": ["Bağlar", "Bismil", "Çermik", "Çınar", "Çüngüş", "Dicle", "Eğil", "Ergani", "Hani", "Hazro", "Kayapınar", "Kocaköy", "Kulp", "Lice", "Silvan", "Sur", "Yenişehir"] }, "Edirne": { "plate": "22", "districts": ["Enez", "Havsa", "İpsala", "Keşan", "Lalapaşa", "Meriç", "Süloğlu", "Uzunköprü"] }, "Elazığ": { "plate": "23", "districts": ["Ağın", "Alacakaya", "Arıcak", "Baskil", "Karakoçan", "Keban", "Kovancılar", "Maden", "Palu", "Sivrice"] }, "Erzincan": { "plate": "24", "districts": ["Çayırlı", "İliç", "Kemah", "Kemaliye", "Otlukbeli", "Refahiye", "Tercan", "Üzümlü"] }, "Erzurum": { "plate": "25", "districts": ["Aşkale", "Aziziye", "Çat", "Hınıs", "Horasan", "İspir", "Karaçoban", "Karayazı", "Köprüköy", "Narman", "Oltu", "Olur", "Palandöken", "Pasinler", "Pazaryolu", "Şenkaya", "Tekman", "Tortum", "Uzundere", "Yakutiye"] }, "Eskişehir": { "plate": "26", "districts": ["Alpu", "Beylikova", "Çifteler", "Günyüzü", "Han", "İnönü", "Mahmudiye", "Mihalgazi", "Mihalıççık", "Odunpazarı", "Sarıcakaya", "Seyitgazi", "Sivrihisar", "Tepebaşı"] }, "Gaziantep": { "plate": "27", "districts": ["Araban", "İslahiye", "Karkamış", "Nizip", "Nurdağı", "Oğuzeli", "Şahinbey", "Şehitkamil", "Yavuzeli"] }, "Giresun": { "plate": "28", "districts": ["Alucra", "Bulancak", "Çamoluk", "Çanakçı", "Dereli", "Doğankent", "Espiye", "Eynesil", "Görele", "Güce", "Keşap", "Piraziz", "Şebinkarahisar", "Tirebolu", "Yağlıdere"] }, "Gümüşhane": { "plate": "29", "districts": ["Kelkit", "Köse", "Kürtün", "Şiran", "Torul"] }, "Hakkari": { "plate": "30", "districts": ["Çukurca", "Derecik", "Şemdinli", "Yüksekova"] }, "Hatay": { "plate": "31", "districts": ["Altınözü", "Antakya", "Arsuz", "Belen", "Defne", "Dörtyol", "Erzin", "Hassa", "İskenderun", "Kırıkhan", "Kumlu", "Payas", "Reyhanlı", "Samandağ", "Yayladağı"] }, "Isparta": { "plate": "32", "districts": ["Aksu", "Atabey", "Eğirdir", "Gelendost", "Gönen", "Keçiborlu", "Senirkent", "Sütçüler", "Şarkikaraağaç", "Uluborlu", "Yalvaç", "Yenişarbademli"] }, "Mersin": { "plate": "33", "districts": ["Akdeniz", "Anamur", "Aydıncık", "Bozyazı", "Çamlıyayla", "Erdemli", "Gülnar", "Mezitli", "Mut", "Silifke", "Tarsus", "Toroslar", "Yenişehir"] }, "İstanbul": { "plate": "34", "districts": ["Adalar", "Arnavutköy", "Ataşehir", "Avcılar", "Bağcılar", "Bahçelievler", "Bakırköy", "Başakşehir", "Bayrampaşa", "Beşiktaş", "Beykoz", "Beylikdüzü", "Beyoğlu", "Büyükçekmece", "Çatalca", "Çekmeköy", "Esenler", "Esenyurt", "Eyüpsultan", "Fatih", "Gaziosmanpaşa", "Güngören", "Kadıköy", "Kağıthane", "Kartal", "Küçükçekmece", "Maltepe", "Pendik", "Sancaktepe", "Sarıyer", "Silivri", "Sultanbeyli", "Sultangazi", "Şile", "Şişli", "Tuzla", "Ümraniye", "Üsküdar", "Zeytinburnu"] }, "İzmir": { "plate": "35", "districts": ["Aliağa", "Balçova", "Bayındır", "Bayraklı", "Bergama", "Beydağ", "Bornova", "Buca", "Çeşme", "Çiğli", "Dikili", "Foça", "Gaziemir", "Güzelbahçe", "Karabağlar", "Karaburun", "Karşıyaka", "Kemalpaşa", "Kınık", "Kiraz", "Konak", "Menderes", "Menemen", "Narlıdere", "Ödemiş", "Seferihisar", "Selçuk", "Tire", "Torbalı", "Urla"] }, "Kars": { "plate": "36", "districts": ["Akyaka", "Arpaçay", "Digor", "Kağızman", "Sarıkamış", "Selim", "Susuz"] }, "Kastamonu": { "plate": "37", "districts": ["Abana", "Ağlı", "Araç", "Azdavay", "Bozkurt", "Cide", "Çatalzeytin", "Daday", "Devrekani", "Doğanyurt", "Hanönü", "İhsangazi", "İnebolu", "Küre", "Pınarbaşı", "Seydiler", "Şenpazar", "Taşköprü", "Tosya"] }, "Kayseri": { "plate": "38", "districts": ["Akkışla", "Bünyan", "Develi", "Felahiye", "Hacılar", "İncesu", "Kocasinan", "Melikgazi", "Özvatan", "Pınarbaşı", "Sarıoğlan", "Sarız", "Talas", "Tomarza", "Yahyalı", "Yeşilhisar"] }, "Kırklareli": { "plate": "39", "districts": ["Babaeski", "Demirköy", "Kofçaz", "Lüleburgaz", "Pehlivanköy", "Pınarhisar", "Vize"] }, "Kırşehir": { "plate": "40", "districts": ["Akçakent", "Akpınar", "Boztepe", "Çiçekdağı", "Kaman", "Mucur"] }, "Kocaeli": { "plate": "41", "districts": ["Başiskele", "Çayırova", "Darıca", "Derince", "Dilovası", "Gebze", "Gölcük", "İzmit", "Kandıra", "Karamürsel", "Kartepe", "Körfez"] }, "Konya": { "plate": "42", "districts": ["Ahırlı", "Akören", "Akşehir", "Altınekin", "Beyşehir", "Bozkır", "Cihanbeyli", "Çeltik", "Çumra", "Derbent", "Derebucak", "Doğanhisar", "Emirgazi", "Ereğli", "Güneysınır", "Hadim", "Halkapınar", "Hüyük", "Ilgın", "Kadınhanı", "Karapınar", "Karatay", "Kulu", "Meram", "Sarayönü", "Selçuklu", "Seydişehir", "Taşkent", "Tuzlukçu", "Yalıhüyük", "Yunak"] }, "Kütahya": { "plate": "43", "districts": ["Altıntaş", "Aslanapa", "Çavdarhisar", "Domaniç", "Dumlupınar", "Emet", "Gediz", "Hisarcık", "Pazarlar", "Simav", "Şaphane", "Tavşanlı"] }, "Malatya": { "plate": "44", "districts": ["Akçadağ", "Arapgir", "Arguvan", "Battalgazi", "Darende", "Doğanşehir", "Doğanyol", "Hekimhan", "Kale", "Kuluncak", "Pütürge", "Yazıhan", "Yeşilyurt"] }, "Manisa": { "plate": "45", "districts": ["Ahmetli", "Akhisar", "Alaşehir", "Demirci", "Gölmarmara", "Gördes", "Kırkağaç", "Köprübaşı", "Kula", "Salihli", "Sarıgöl", "Saruhanlı", "Selendi", "Soma", "Şehzadeler", "Turgutlu", "Yunusemre"] }, "Kahramanmaraş": { "plate": "46", "districts": ["Afşin", "Andırın", "Çağlayancerit", "Dulkadiroğlu", "Ekinözü", "Elbistan", "Göksun", "Nurhak", "Onikişubat", "Pazarcık", "Türkoğlu"] }, "Mardin": { "plate": "47", "districts": ["Artuklu", "Dargeçit", "Derik", "Kızıltepe", "Mazıdağı", "Midyat", "Nusaybin", "Ömerli", "Savur", "Yeşilli"] }, "Muğla": { "plate": "48", "districts": ["Bodrum", "Dalaman", "Datça", "Fethiye", "Kavaklıdere", "Köyceğiz", "Marmaris", "Menteşe", "Milas", "Ortaca", "Seydikemer", "Ula", "Yatağan"] }, "Muş": { "plate": "49", "districts": ["Bulanık", "Hasköy", "Korkut", "Malazgirt", "Varto"] }, "Nevşehir": { "plate": "50", "districts": ["Acıgöl", "Avanos", "Derinkuyu", "Gülşehir", "Hacıbektaş", "Kozaklı", "Ürgüp"] }, "Niğde": { "plate": "51", "districts": ["Altunhisar", "Bor", "Çamardı", "Çiftlik", "Ulukışla"] }, "Ordu": { "plate": "52", "districts": ["Akkuş", "Altınordu", "Aybastı", "Çamaş", "Çatalpınar", "Çaybaşı", "Fatsa", "Gölköy", "Gülyalı", "Gürgentepe", "İkizce", "Kabadüz", "Kabataş", "Korgan", "Kumru", "Mesudiye", "Perşembe", "Ulubey", "Ünye"] }, "Rize": { "plate": "53", "districts": ["Ardeşen", "Çamlıhemşin", "Çayeli", "Derepazarı", "Fındıklı", "Güneysu", "Hemşin", "İkizdere", "İyidere", "Kalkandere", "Pazar"] }, "Sakarya": { "plate": "54", "districts": ["Adapazarı", "Akyazı", "Arifiye", "Erenler", "Ferizli", "Geyve", "Hendek", "Karapürçek", "Karasu", "Kaynarca", "Kocaali", "Pamukova", "Sapanca", "Serdivan", "Söğütlü", "Taraklı"] }, "Samsun": { "plate": "55", "districts": ["Alaçam", "Asarcık", "Atakum", "Ayvacık", "Bafra", "Canik", "Çarşamba", "Havza", "İlkadım", "Kavak", "Ladik", "Ondokuzmayıs", "Salıpazarı", "Tekkeköy", "Terme", "Vezirköprü", "Yakakent"] }, "Siirt": { "plate": "56", "districts": ["Baykan", "Eruh", "Kurtalan", "Pervari", "Şirvan", "Tillo"] }, "Sinop": { "plate": "57", "districts": ["Ayancık", "Boyabat", "Dikmen", "Durağan", "Erfelek", "Gerze", "Saraydüzü", "Türkeli"] }, "Sivas": { "plate": "58", "districts": ["Akıncılar", "Altınyayla", "Divriği", "Doğanşar", "Gemerek", "Gölova", "Gürün", "Hafik", "İmranlı", "Kangal", "Koyulhisar", "Suşehri", "Şarkışla", "Ulaş", "Yıldızeli", "Zara"] }, "Tekirdağ": { "plate": "59", "districts": ["Çerkezköy", "Çorlu", "Ergene", "Hayrabolu", "Kapaklı", "Malkara", "Muratlı", "Saray", "Süleymanpaşa", "Şarköy"] }, "Tokat": { "plate": "60", "districts": ["Almus", "Artova", "Başçiftlik", "Erbaa", "Niksar", "Pazar", "Reşadiye", "Sulusaray", "Turhal", "Yeşilyurt", "Zile"] }, "Trabzon": { "plate": "61", "districts": ["Akçaabat", "Araklı", "Arsin", "Beşikdüzü", "Çarşıbaşı", "Çaykara", "Dernekpazarı", "Düzköy", "Hayrat", "Köprübaşı", "Maçka", "Of", "Ortahisar", "Sürmene", "Şalpazarı", "Tonya", "Vakfıkebir", "Yomra"] }, "Tunceli": { "plate": "62", "districts": ["Çemişgezek", "Hozat", "Mazgirt", "Nazımiye", "Ovacık", "Pertek", "Pülümür"] }, "Şanlıurfa": { "plate": "63", "districts": ["Akçakale", "Birecik", "Bozova", "Ceylanpınar", "Eyyübiye", "Halfeti", "Haliliye", "Harran", "Hilvan", "Karaköprü", "Siverek", "Suruç", "Viranşehir"] }, "Uşak": { "plate": "64", "districts": ["Banaz", "Eşme", "Karahallı", "Sivaslı", "Ulubey"] }, "Van": { "plate": "65", "districts": ["Bahçesaray", "Başkale", "Çaldıran", "Çatak", "Edremit", "Erciş", "Gevaş", "Gürpınar", "İpekyolu", "Muradiye", "Özalp", "Saray", "Tuşba"] }, "Yozgat": { "plate": "66", "districts": ["Akdağmadeni", "Aydıncık", "Boğazlıyan", "Çandır", "Çayıralan", "Çekerek", "Kadışehri", "Saraykent", "Sarıkaya", "Sorgun", "Şefaatli", "Yenifakılı", "Yerköy"] }, "Zonguldak": { "plate": "67", "districts": ["Alaplı", "Çaycuma", "Devrek", "Ereğli", "Gökçebey", "Kilimli", "Kozlu"] }, "Aksaray": { "plate": "68", "districts": ["Ağaçören", "Eskil", "Gülağaç", "Güzelyurt", "Ortaköy", "Sarıyahşi", "Sultanhanı"] }, "Bayburt": { "plate": "69", "districts": ["Aydıntepe", "Demirözü"] }, "Karaman": { "plate": "70", "districts": ["Ayrancı", "Başyayla", "Ermenek", "Kazımkarabekir", "Sarıveliler"] }, "Kırıkkale": { "plate": "71", "districts": ["Bahşılı", "Balışeyh", "Çelebi", "Delice", "Karakeçili", "Keskin", "Sulakyurt", "Yahşihan"] }, "Batman": { "plate": "72", "districts": ["Beşiri", "Gercüş", "Hasankeyf", "Kozluk", "Sason"] }, "Şırnak": { "plate": "73", "districts": ["Beytüşşebap", "Cizre", "Güçlükonak", "İdil", "Silopi", "Uludere"] }, "Bartın": { "plate": "74", "districts": ["Amasra", "Kurucaşile", "Ulus"] }, "Ardahan": { "plate": "75", "districts": ["Çıldır", "Damal", "Göle", "Hanak", "Posof"] }, "Iğdır": { "plate": "76", "districts": ["Aralık", "Karakoyunlu", "Tuzluca"] }, "Yalova": { "plate": "77", "districts": ["Altınova", "Armutlu", "Çınarcık", "Çiftlikköy", "Termal"] }, "Karabük": { "plate": "78", "districts": ["Eflani", "Eskipazar", "Ovacık", "Safranbolu", "Yenice"] }, "Kilis": { "plate": "79", "districts": ["Elbeyli", "Musabeyli", "Polateli"] }, "Osmaniye": { "plate": "80", "districts": ["Bahçe", "Düziçi", "Hasanbeyli", "Kadirli", "Sumbas", "Toprakkale"] }, "Düzce": { "plate": "81", "districts": ["Akçakoca", "Cumayeri", "Çilimli", "Gölyaka", "Gümüşova", "Kaynaşlı", "Yığılca"] } };
+        const religiousQuotes = [ { text: "“Namaz, dinin direğidir.”", source: "Tirmizî, Îmân, 8" }, { text: "“Müminin miracı olan namaz, gözümün nurudur.”", source: "Nesâî, İşretu’n-nisâ, 1" }, { text: "“Beni anmak için namaz kıl.”", source: "Tâhâ Suresi, 14. Ayet" }, { text: "“Şüphesiz namaz, mü’minler üzerine vakitleri belli bir farzdır.”", source: "Nisâ Suresi, 103. Ayet" }, { text: "“Sabrederek ve namaz kılarak Allah’tan yardım dileyin.”", source: "Bakara Suresi, 45. Ayet" }, { text: "“Kıyamet gününde kulun ilk hesaba çekileceği şey namazdır.”", source: "Tirmizî, Salât, 188" } ];
+        const provinces = Object.keys(provinceData).sort((a, b) => parseInt(provinceData[a].plate) - parseInt(provinceData[b].plate));
+        const searchInput = document.getElementById('search-input');
+        const provinceGrid = document.getElementById('province-grid');
+        const modalContainer = document.getElementById('modal-container');
+        const modalContent = document.getElementById('modal-content');
+        const modalTitle = document.getElementById('modal-title');
+        const closeModalBtn = document.getElementById('close-modal');
+        const districtList = document.getElementById('district-list');
+        const prayerTimesContainer = document.getElementById('prayer-times-container');
+        const prayerTimesList = document.getElementById('prayer-times-list');
+        const loader = document.getElementById('loader');
+        const countdownEl = document.getElementById('countdown');
+        const nextPrayerNameEl = document.getElementById('next-prayer-name');
+        const hadithTextEl = document.getElementById('hadith-text');
+        const hadithSourceEl = document.getElementById('hadith-source');
+        let countdownInterval;
+        const prayerIcons = { Imsak: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-custom-teal-500"><path d="M12 2a7 7 0 1 0 10 10"/></svg>`, Gunes: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`, Ogle: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-yellow-500"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m4.93 19.07 1.41-1.41"/><path d="m17.66 6.34 1.41-1.41"/></svg>`, Ikindi: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-orange-500"><path d="M12 16.5A4.5 4.5 0 1 1 7.5 12 4.5 4.5 0 0 1 12 16.5z"/><path d="M12 3v1"/><path d="M12 20v1"/><path d="M4 12H3"/><path d="M21 12h-1"/><path d="m19.07 4.93-1.41 1.41"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 19.07-1.41-1.41"/><path d="m6.34 6.34-1.41-1.41"/></svg>`, Aksam: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-500"><path d="M12 2a7 7 0 1 0 10 10"/></svg>`, Yatsi: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-purple-500"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>` };
+        
+        function displayRandomQuote() {
+            const quote = religiousQuotes[Math.floor(Math.random() * religiousQuotes.length)];
+            hadithTextEl.textContent = quote.text;
+            hadithSourceEl.textContent = `~ ${quote.source}`;
+        }
+        function renderProvinces(filter = '') {
+            provinceGrid.innerHTML = '';
+            const filteredProvinces = provinces.filter(p => p.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(filter.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
+            filteredProvinces.forEach((province, index) => {
+                const card = document.createElement('div');
+                card.className = 'province-card relative bg-white border border-gray-200 rounded-xl p-4 text-center cursor-pointer shadow-sm overflow-hidden';
+                card.style.animationDelay = `${index * 0.02}s`;
+                card.innerHTML = `
+                    <span class="absolute top-2 right-2 bg-slate-100 text-custom-teal-700 rounded-full px-2 py-1 text-xs font-semibold">${provinceData[province].plate}</span>
+                    <span class="font-medium text-slate-700">${province}</span>
+                `;
+                card.addEventListener('click', () => openModal(province));
+                provinceGrid.appendChild(card);
+            });
+        }
+        function openModal(province) {
+            modalTitle.textContent = province;
+            renderDistricts(province);
+            fetchAndDisplayPrayerTimes(province);
+            modalContainer.classList.remove('opacity-0', 'pointer-events-none');
+            modalContent.classList.remove('scale-90');
+        }
+        function closeModal() {
+            modalContent.classList.add('scale-90');
+            modalContainer.classList.add('opacity-0');
+            setTimeout(() => {
+                modalContainer.classList.add('pointer-events-none');
+                if (countdownInterval) clearInterval(countdownInterval);
+            }, 300);
+        }
+        function renderDistricts(province) {
+            districtList.innerHTML = '';
+            const districts = [province, ...provinceData[province].districts].sort((a,b) => a.localeCompare(b, 'tr'));
+            districts.forEach(district => {
+                const button = document.createElement('button');
+                button.className = 'district-button w-full text-left p-3 rounded-lg text-slate-600';
+                button.textContent = district;
+                
+                if (district === province) {
+                     button.textContent += " (Merkez)";
+                     button.classList.add('active');
+                }
+                button.addEventListener('click', (e) => {
+                    const allButtons = districtList.querySelectorAll('.district-button');
+                    allButtons.forEach(btn => btn.classList.remove('active'));
+                    e.currentTarget.classList.add('active');
+                    fetchAndDisplayPrayerTimes(district, province);
+                });
+                districtList.appendChild(button);
+            });
+        }
+        async function fetchAndDisplayPrayerTimes(city, provinceForAPI = null) {
+            loader.classList.remove('hidden');
+            prayerTimesContainer.classList.add('hidden');
+            if (countdownInterval) clearInterval(countdownInterval);
+            countdownEl.textContent = '-:-:-';
+            nextPrayerNameEl.textContent = '-';
+            const url = `https://api.aladhan.com/v1/timingsByCity?city=${encodeURIComponent(city)}&country=Turkey&method=3`;
+            
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('API isteği başarısız oldu.');
+                const data = await response.json();
+                const times = data.data.timings;
+                times.Gunes = times.Sunrise;
+                delete times.Sunrise;
+                delete times.Sunset;
+                displayPrayerTimes(times);
+                startCountdown(times);
+            } catch (error) {
+                console.error('Namaz vakitleri alınırken hata:', error);
+                prayerTimesList.innerHTML = `<p class="text-center text-red-500">Veriler yüklenemedi.</p>`;
+            } finally {
+                loader.classList.add('hidden');
+                prayerTimesContainer.classList.remove('hidden');
+            }
+        }
+        
+        function displayPrayerTimes(times) {
+            prayerTimesList.innerHTML = '';
+            const relevantPrayers = { "Imsak": times.Imsak, "Gunes": times.Gunes, "Ogle": times.Dhuhr, "Ikindi": times.Asr, "Aksam": times.Maghrib, "Yatsi": times.Isha };
+            for (const key in relevantPrayers) {
+                const time = relevantPrayers[key];
+                const prayerEl = document.createElement('div');
+                prayerEl.className = 'flex items-center justify-between bg-white/70 p-3 rounded-lg shadow-sm';
+                prayerEl.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        ${prayerIcons[key]}
+                        <span class="font-medium text-base text-slate-600">${key}</span>
+                    </div>
+                    <span class="font-mono text-lg font-semibold text-slate-800">${time}</span>
+                `;
+                prayerTimesList.appendChild(prayerEl);
+            }
+        }
+        function startCountdown(times) {
+            if (countdownInterval) clearInterval(countdownInterval);
+            const prayerTimesToday = [ { name: "İmsak", time: times.Imsak }, { name: "Güneş", time: times.Gunes }, { name: "Öğle", time: times.Dhuhr }, { name: "İkindi", time: times.Asr }, { name: "Akşam", time: times.Maghrib }, { name: "Yatsı", time: times.Isha } ];
+            function calculate() {
+                const now = new Date();
+                let nextPrayer = null;
+                for (const prayer of prayerTimesToday) {
+                    const [hour, minute] = prayer.time.split(':');
+                    const prayerTime = new Date();
+                    prayerTime.setHours(hour, minute, 0, 0);
+                    if (prayerTime > now) {
+                        nextPrayer = { name: prayer.name, time: prayerTime };
+                        break;
+                    }
+                }
+                if (!nextPrayer) {
+                    const [hour, minute] = prayerTimesToday[0].time.split(':');
+                    const nextDayPrayerTime = new Date();
+                    nextDayPrayerTime.setDate(nextDayPrayerTime.getDate() + 1);
+                    nextDayPrayerTime.setHours(hour, minute, 0, 0);
+                    nextPrayer = { name: prayerTimesToday[0].name, time: nextDayPrayerTime };
+                }
+                nextPrayerNameEl.textContent = nextPrayer.name;
+                const diff = nextPrayer.time - now;
+                const hours = Math.floor(diff / 3600000);
+                const minutes = Math.floor((diff % 3600000) / 60000);
+                const seconds = Math.floor((diff % 60000) / 1000);
+                countdownEl.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }
+            calculate();
+            countdownInterval = setInterval(calculate, 1000);
+        }
+        searchInput.addEventListener('input', (e) => renderProvinces(e.target.value));
+        closeModalBtn.addEventListener('click', closeModal);
+        modalContainer.addEventListener('click', (e) => e.target === modalContainer && closeModal());
+        document.addEventListener('keydown', (e) => e.key === 'Escape' && closeModal());
+        displayRandomQuote();
+        renderProvinces();
+    </script>
+</body>
+</html>
